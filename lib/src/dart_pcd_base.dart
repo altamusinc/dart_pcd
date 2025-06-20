@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:typed_data';
 
@@ -70,6 +71,7 @@ enum PCDDataType {
     }
   }
 }
+
 class PCD {
   List<List<num>> points;
   late PCDHeader header;
@@ -136,17 +138,114 @@ class PCD {
     return types;
   }
 
+  ByteData pointsToBinary() {
+    header.dataType = PCDDataType.binary; // Set the data type in the header.
+    int pointBytesSize = 0;
+    for (var field in header.size) {
+      pointBytesSize += field.size; // Calculate total size of a point based on field sizes.
+    }
+    var bdata = ByteData(pointBytesSize * points.length); // Create a ByteData buffer for all points.
+    int offset = 0; // Offset to write into the ByteData buffer.
+    for (final point in points) {
+      for (var i = 0; i < point.length; i++) {
+        var field = point[i];
+        var type = header.type[i];
+        var size = header.size[i].size;
+        switch (type) {
+          case PCDFieldType.int:
+            switch (size) {
+              case 1:
+                bdata.setInt8(offset, field.toInt()); // Write as int8.
+                break;
+              case 2:
+                bdata.setInt16(offset, field.toInt(), Endian.little); // Write as int16.
+                break;
+              case 4:
+                bdata.setInt32(offset, field.toInt(), Endian.little); // Write as int32.
+                break;
+              case 8:
+                bdata.setInt64(offset, field.toInt(), Endian.little); // Write as int64.
+                break;
+            }
+            break;
+          case PCDFieldType.unsignedInt:
+          switch (size) {
+              case 1:
+                bdata.setUint8(offset, field.toInt() & 0xFF); // Write as uint8.
+                break;
+              case 2:
+                bdata.setUint16(offset, field.toInt() & 0xFFFF, Endian.little); // Write as uint16.
+                break;
+              case 4:
+                bdata.setUint32(offset, field.toInt() & 0xFFFFFFFF, Endian.little); // Write as uint32.
+                break;
+              case 8:
+                bdata.setUint64(offset, field.toInt() & 0xFFFFFFFFFFFFFFFF, Endian.little); // Write as uint64.
+                break;
+            }
+            break;
+          case PCDFieldType.float:
+            switch (size) {
+              case 1:
+                throw Exception("Float cannot be 1 byte, use int or unsigned int instead.");
+              case 2:
+                throw Exception("Float cannot be 2 bytes, use int or unsigned int instead.");
+              case 4:
+                bdata.setFloat32(offset, field.toDouble(), Endian.little); // Write as float32.
+                break;
+              case 8:
+                bdata.setFloat64(offset, field.toDouble(), Endian.little); // Write as float64.
+                break;
+            }
+            break;
+        }
+        offset += size; // Move the offset forward by the size of the field.
+      }
+    }
+    return bdata;
+  }
+
+  /// Converts a point field to the appropriate data type based on the PCDFieldType.
+  dynamic _convertPointFieldToDataType(num field, PCDFieldType type) {
+    switch (type) {
+      case PCDFieldType.int:
+        return field.toInt();
+      case PCDFieldType.unsignedInt:
+        return field.toInt() & 0xFFFFFFFF; // Ensure unsigned int
+      case PCDFieldType.float:
+        return field.toDouble();
+    }
+  }
+
+  ByteData pcdBinary() {
+    String headerString = header.toString(); // Get the header string.
+    ByteData headerBytes = ByteData.view(utf8.encode(headerString).buffer); // Convert header string to bytes.
+    ByteData pointsBytes = pointsToBinary(); // Convert points to binary format.
+    int totalSize = headerBytes.lengthInBytes + pointsBytes.lengthInBytes; // Calculate total size.
+    ByteData pcdData = ByteData(totalSize); // Create a ByteData buffer for the PCD data.
+    int offset = 0; // Offset to write into the ByteData buffer.
+    // Write header bytes into the PCD data.
+    for (int i = 0; i < headerBytes.lengthInBytes; i++) {
+      pcdData.setUint8(offset++, headerBytes.getUint8(i));
+    }
+    // Write points bytes into the PCD data.
+    for (int i = 0; i < pointsBytes.lengthInBytes; i++) {
+      pcdData.setUint8(offset++, pointsBytes.getUint8(i));
+    }
+    return pcdData; // Return the complete PCD data.
+  }
+  
   @override
   String toString(){
-    String s = header.toString();
+    String s = "";
+    s += header.toString(); // Start with the header string.
     for(final point in points)
     {
-      String p = ""; // String for the row representing this point
-      for (final field in point)
-      {
-        p += "${field.toString()} "; // fill out the row
+      for (var i = 0; i < point.length; i++) {
+        var val = _convertPointFieldToDataType(point[i], header.type[i]); // Convert each point value to the correct type.
+        s += "${val.toString()} "; // Add each value in the point to the string.
       }
-      s += "${p.trim()} \n"; // Add it to the string.
+      s += "\n"; // New line after each point.
     }
     return s;
   }
@@ -154,7 +253,7 @@ class PCD {
 
 class PCDHeader {
   String _comments = "";
-  final String _fixedComment = "Generated by dart_pcd on ${DateTime.now()}}";
+  final String _fixedComment = "Generated by dart_pcd on ${DateTime.now()}";
   String version = ".7";
   List<String> fields;
   List<PCDFieldLength> size;
