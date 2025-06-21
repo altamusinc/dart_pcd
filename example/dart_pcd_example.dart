@@ -5,6 +5,6 @@ void main() {
   points.add([1, 2.0, 3]);
   points.add([4, 5.0, 6]);
   points.add([7, 8.0, 9]);
-  var pcd = PCD(points);
+  var pcd = PCD.fromXYZPoints(points);
   print(pcd);
 }

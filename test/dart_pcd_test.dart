@@ -68,6 +68,8 @@ i'm including multiple lines
       var fieldTypes = [PCDFieldType.float, PCDFieldType.float, PCDFieldType.float, PCDFieldType.unsignedInt, PCDFieldType.unsignedInt, PCDFieldType.unsignedInt, PCDFieldType.unsignedInt];
       final pcd = PCD.fromPoints(points: xyzdiatPoints, fieldNames: fieldNames, fieldTypes: fieldTypes, fieldLengths: fieldSizes);
       print(pcd);
+      pcd.saveToFile("testbin.pcd");
+      pcd.saveToFile("testascii.pcd", dataType: PCDDataType.ascii);
       expect(pcd.points.length, 9);
     });
   });

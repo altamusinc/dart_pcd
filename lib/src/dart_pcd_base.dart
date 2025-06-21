@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:ffi';
+import 'dart:io';
 import 'dart:typed_data';
 
 enum PCDFieldType {
@@ -139,7 +140,6 @@ class PCD {
   }
 
   ByteData pointsToBinary() {
-    header.dataType = PCDDataType.binary; // Set the data type in the header.
     int pointBytesSize = 0;
     for (var field in header.size) {
       pointBytesSize += field.size; // Calculate total size of a point based on field sizes.
@@ -218,6 +218,7 @@ class PCD {
   }
 
   ByteData pcdBinary() {
+    header.dataType = PCDDataType.binary; // Set the data type in the header to binary.
     String headerString = header.toString(); // Get the header string.
     ByteData headerBytes = ByteData.view(utf8.encode(headerString).buffer); // Convert header string to bytes.
     ByteData pointsBytes = pointsToBinary(); // Convert points to binary format.
@@ -234,7 +235,27 @@ class PCD {
     }
     return pcdData; // Return the complete PCD data.
   }
-  
+
+  void saveToFile(
+    String filePath, {
+    PCDDataType dataType = PCDDataType.binary,
+  }) {
+    final file = File(filePath);
+    file.createSync(recursive: true); // Create the file if it doesn't exist.
+
+    switch (dataType) {
+      case PCDDataType.binary:
+        file.writeAsBytesSync(pcdBinary().buffer.asUint8List());
+        break;
+      case PCDDataType.ascii:
+        header.dataType = PCDDataType.ascii; // Set the data type in the header.
+        file.writeAsStringSync(toString());
+        break;
+      case PCDDataType.binaryCompressed:
+        throw Exception("Binary compressed format is not supported yet.");
+    }
+  }
+
   @override
   String toString(){
     String s = "";
