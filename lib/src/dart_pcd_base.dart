@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -320,23 +319,27 @@ class PCDHeader {
     for (final field in fields) {
       fieldsStr += "$field ";
     }
+    fieldsStr = fieldsStr.trim();
     String sizeStr = "";
     for (final s in size) {
       sizeStr += "${s.toString().trim()} ";
     }
+    sizeStr = sizeStr.trim();
     String typeStr = "";
     for (final t in type) {
       typeStr += "$t ";
     }
+    typeStr = typeStr.trim();
     String countStr = "";
     for (final c in count) {
       countStr += "${c.toString()} ";
     }
+    countStr = countStr.trim();
     String viewpointStr = "";
     for (final v in viewpoint) {
       viewpointStr += "${v.toString()} ";
     }
-
+    viewpointStr = viewpointStr.trim();
     String comments = _buildComments();
     String s = '''
 $comments
